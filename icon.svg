@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<rect width="512" height="512" rx="96" fill="#0060E0"/>
+<circle cx="256" cy="240" r="140" fill="none" stroke="#fff" stroke-width="12"/>
+<path d="M256 100 L270 155 L328 155 L280 190 L296 245 L256 215 L216 245 L232 190 L184 155 L242 155Z" fill="#F5BC35"/>
+<path d="M256 100 L270 155 L328 155 L280 190 L296 245 L256 215 L216 245 L232 190 L184 155 L242 155Z" fill="none" stroke="#E8A600" stroke-width="2"/>
+<g fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="3">
+<path d="M186 310 Q220 280 256 310 Q292 340 326 310"/>
+<line x1="256" y1="280" x2="256" y2="340"/>
+</g>
+<text x="256" y="430" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-weight="700" font-size="72" fill="#fff" letter-spacing="4">2026</text>
+</svg>

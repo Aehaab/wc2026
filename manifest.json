@@ -1,0 +1,28 @@
+{
+  "name": "FIFA World Cup 2026 Dashboard",
+  "short_name": "WC2026",
+  "description": "Live scores, standings, and stats for the FIFA World Cup 2026",
+  "start_url": "./wc2026_dashboard.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#04080F",
+  "theme_color": "#0060E0",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
