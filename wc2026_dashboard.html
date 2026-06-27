@@ -99,17 +99,18 @@ html[data-theme="light"] #bg-art{opacity:0.25}
 /* ═══ HEADER ════════════════════════════════════════════════════ */
 .hdr{
   position:sticky;top:0;z-index:500;
-  height:58px;
+  min-height:58px;
+  padding-top:env(safe-area-inset-top);
   background:rgba(1,12,24,0.94);
   backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
   border-bottom:1px solid var(--border);
-  padding:0 20px;padding-left:max(20px,env(safe-area-inset-left));padding-right:max(20px,env(safe-area-inset-right));
+  padding-left:max(20px,env(safe-area-inset-left));padding-right:max(20px,env(safe-area-inset-right));
   display:flex;align-items:center;justify-content:space-between;
   box-shadow:0 4px 32px rgba(0,0,0,0.7);
 }
 /* Trionda accent bar — full-width, bold */
 .hdr::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  content:'';position:absolute;top:env(safe-area-inset-top,0);left:0;right:0;height:3px;
   background:linear-gradient(90deg,
     var(--blue)  0%,
     var(--blue2) 22%,
@@ -1443,7 +1444,7 @@ html,body{max-width:100vw;overflow-x:hidden}
   margin-top:8px;padding-top:8px;border-top:1px solid var(--border2);
   font-size:10.5px;color:var(--txt2);line-height:1.6;font-style:italic;
 }
-.bcard-squad{max-height:300px;overflow-y:auto;padding-right:2px}
+.bcard-squad{max-height:none;padding-right:2px}
 
 /* ═══ LIGHT / DAY THEME ══════════════════════════════════════════ */
 html[data-theme="light"]{
