@@ -4057,12 +4057,13 @@ function renderDstrip() {
 
   const matchDays = dstripMatchDays();
   const allDates = Object.keys(matchDays).sort();
-  if (!allDates.length) { wrap.style.display = 'none'; return; }
   wrap.style.display = 'flex';
 
   const today = dstripToday();
-  const first = allDates[0] < today ? today : allDates[0];
-  const last = allDates[allDates.length - 1];
+  const tourneyStart = '2026-06-11';
+  const tourneyEnd = '2026-07-19';
+  const first = tourneyStart < today ? today : tourneyStart;
+  const last = tourneyEnd;
 
   let days = [];
   let cur = first;
