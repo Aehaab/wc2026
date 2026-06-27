@@ -12,6 +12,11 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-startup-image" media="(device-width:390px) and (device-height:844px) and (-webkit-device-pixel-ratio:3)" href="splash-1170x2532.png">
+<link rel="apple-touch-startup-image" media="(device-width:393px) and (device-height:852px) and (-webkit-device-pixel-ratio:3)" href="splash-1179x2556.png">
+<link rel="apple-touch-startup-image" media="(device-width:430px) and (device-height:932px) and (-webkit-device-pixel-ratio:3)" href="splash-1290x2796.png">
+<link rel="apple-touch-startup-image" media="(device-width:402px) and (device-height:874px) and (-webkit-device-pixel-ratio:3)" href="splash-1206x2622.png">
+<link rel="apple-touch-startup-image" media="(device-width:440px) and (device-height:956px) and (-webkit-device-pixel-ratio:3)" href="splash-1320x2868.png">
 <style>
 /* ═══ WC2026 TRIONDA THEME ══════════════════════════════════════
    Trionda palette: Electric Blue · Vivid Red · Warm Gold
@@ -1822,7 +1827,6 @@ function renderUpcoming() {
     items = S.matches
       .filter(m => m.state === 'pre' || m.state === 'in')
       .sort((a,b) => new Date(a.date) - new Date(b.date))
-      .slice(0, 10);
     headerText = 'Upcoming & Live';
   }
 
@@ -5190,7 +5194,10 @@ async function init() {
 
   try {
     // ── Phase 1: group stage → fast first paint ──
-    const gsEvts    = await fetchDays(genDays('2026-06-11','2026-06-27'));
+    const today = new Date();
+    const todayStr = `${today.getUTCFullYear()}-${String(today.getUTCMonth()+1).padStart(2,'0')}-${String(today.getUTCDate()).padStart(2,'0')}`;
+    const phase1End = todayStr > '2026-06-27' ? todayStr : '2026-06-27';
+    const gsEvts    = await fetchDays(genDays('2026-06-11', phase1End));
     const gsMatches = gsEvts.map(parseEv).filter(Boolean);
     S.matches = gsMatches;
     S.ko      = [];
@@ -5211,7 +5218,7 @@ async function init() {
 
     const withTimeout = (p, ms=10000) => Promise.race([p, new Promise(r => setTimeout(() => r([]), ms))]);
     const [koEvts, sd] = await Promise.all([
-      withTimeout(fetchDays(genDays('2026-06-28','2026-07-19'))),
+      withTimeout(fetchDays(genDays(dstripAddDays(phase1End, 1),'2026-07-19'))),
       withTimeout(fetchSt()),
       withTimeout(fetchLeaders(true)),
     ]);
@@ -5271,7 +5278,19 @@ async function refresh() {
       if (fm.state === 'in') {
         const prev = _prevScores[fm.id];
         const total = (fm.home.score || 0) + (fm.away.score || 0);
-        if (prev !== undefined && total > prev) fireConfetti();
+        if (prev !== undefined && total > prev) {
+          fireConfetti();
+          if (localStorage.getItem('wc26_notif') === '1' && Notification.permission === 'granted') {
+            try {
+              const scorer = total > prev ? (fm.home.score > (S.matches.find(x => x.id === fm.id)?.home?.score || 0) ? fm.home : fm.away) : fm.away;
+              new Notification(`⚽ GOAL! ${scorer.abbr}`, {
+                body: `${fm.home.abbr} ${fm.home.score} - ${fm.away.score} ${fm.away.abbr}`,
+                icon: 'icon-192.png',
+                tag: `goal-${fm.id}-${total}`,
+              });
+            } catch(e) {}
+          }
+        }
         _prevScores[fm.id] = total;
       }
       const i = S.matches.findIndex(m => m.id === fm.id);
@@ -5387,12 +5406,34 @@ init();
         try {
           new Notification('FIFA World Cup 2026', {
             body: `${m.home.abbr} vs ${m.away.abbr} kicks off in 15 minutes`,
-            icon: 'https://a.espncdn.com/redesign/assets/img/icons/ESPN-icon-football.png',
+            icon: 'icon-192.png',
           });
         } catch(e) { console.warn('Notification failed:', e.message); }
       }
     });
   }, 30_000);
+})();
+
+/* ══════════════════════════════════════════
+   SCREEN WAKE LOCK — keeps screen on during live matches
+══════════════════════════════════════════ */
+(function() {
+  let wakeLock = null;
+  async function requestWake() {
+    if (!('wakeLock' in navigator) || wakeLock) return;
+    try { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } catch(e) {}
+  }
+  function releaseWake() {
+    if (wakeLock) { wakeLock.release(); wakeLock = null; }
+  }
+  setInterval(() => {
+    if (!S.ready) return;
+    const hasLive = S.matches.some(m => m.state === 'in');
+    if (hasLive) requestWake(); else releaseWake();
+  }, 30_000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && S.ready && S.matches.some(m => m.state === 'in')) requestWake();
+  });
 })();
 
 /* ══════════════════════════════════════════

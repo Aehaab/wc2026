@@ -1,10 +1,15 @@
-const CACHE = 'wc2026-v2';
+const CACHE = 'wc2026-v3';
 const APP_SHELL = [
   './wc2026_dashboard.html',
   './icon.svg',
   './icon-192.png',
   './icon-512.png',
-  './manifest.json'
+  './manifest.json',
+  './splash-1170x2532.png',
+  './splash-1179x2556.png',
+  './splash-1290x2796.png',
+  './splash-1206x2622.png',
+  './splash-1320x2868.png'
 ];
 
 self.addEventListener('install', e => {
