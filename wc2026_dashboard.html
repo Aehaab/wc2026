@@ -4850,14 +4850,14 @@ function bracketHTML() {
   const BKT_L = [
     [['RSA','CAN'],['NED','MAR']],
     [['GER','PAR'],['FRA','SWE']],
-    [['POR','CRO'],['ESP','AUT']],
-    [['USA','BIH'],['BEL','SEN']],
+    [['BEL','SEN'],['USA','BIH']],
+    [['ESP','AUT'],['POR','CRO']],
   ];
   const BKT_R = [
     [['BRA','JPN'],['CIV','NOR']],
     [['MEX','ECU'],['ENG','COD']],
     [['SUI','ALG'],['COL','GHA']],
-    [['ARG','CPV'],['AUS','EGY']],
+    [['AUS','EGY'],['ARG','CPV']],
   ];
   const _findR32 = (a, b) => r32.find(m =>
     (m.home.abbr===a&&m.away.abbr===b)||(m.home.abbr===b&&m.away.abbr===a));
