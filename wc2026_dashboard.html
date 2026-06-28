@@ -4845,10 +4845,51 @@ function bracketHTML() {
   const hasGroups = Object.keys(S.groups).length > 0;
   const showProj = r32HasTBD && hasGroups;
 
-  // R32 column: use projKmHTML if projecting, else normal kmHTML
-  const r32Cards = r32.map((m, i) => showProj ? projKmHTML(m, i) : kmHTML(m));
-  const r32L = r32Cards.slice(0, 8);
-  const r32R = r32Cards.slice(8, 16);
+  // Official FIFA 2026 bracket structure defined by team pairs.
+  // SF1 (Dallas) path = LEFT, SF2 (Atlanta) path = RIGHT.
+  const BKT_L = [
+    [['RSA','CAN'],['NED','MAR']],
+    [['GER','PAR'],['FRA','SWE']],
+    [['POR','CRO'],['ESP','AUT']],
+    [['USA','BIH'],['BEL','SEN']],
+  ];
+  const BKT_R = [
+    [['BRA','JPN'],['CIV','NOR']],
+    [['MEX','ECU'],['ENG','COD']],
+    [['SUI','ALG'],['COL','GHA']],
+    [['ARG','CPV'],['AUS','EGY']],
+  ];
+  const _findR32 = (a, b) => r32.find(m =>
+    (m.home.abbr===a&&m.away.abbr===b)||(m.home.abbr===b&&m.away.abbr===a));
+  const _findR16 = (pair, pool) => {
+    const teams = pair.flat();
+    return pool.find(m => {
+      if (teams.includes(m.home.abbr)||teams.includes(m.away.abbr)) return true;
+      const resolve = name => {
+        const ref = (name||'').match(/Round of 32[^\d]*(\d+)/i);
+        if (!ref) return null;
+        const n = parseInt(ref[1]);
+        const key = FIFA_R32[n-1];
+        return key ? _findR32(...key.split('|')) : null;
+      };
+      const hp = resolve(m.home.name), ap = resolve(m.away.name);
+      return (hp && teams.some(t => t===hp.home.abbr||t===hp.away.abbr)) ||
+             (ap && teams.some(t => t===ap.home.abbr||t===ap.away.abbr));
+    });
+  };
+  const FIFA_R32 = [
+    'RSA|CAN','GER|PAR','NED|MAR','BRA|JPN','FRA|SWE','CIV|NOR','MEX|ECU','ENG|COD',
+    'USA|BIH','BEL|SEN','POR|CRO','ESP|AUT','SUI|ALG','ARG|CPV','COL|GHA','AUS|EGY',
+  ];
+
+  const r32Left  = BKT_L.flatMap(p => p.map(([a,b]) => _findR32(a,b))).filter(Boolean);
+  const r32Right = BKT_R.flatMap(p => p.map(([a,b]) => _findR32(a,b))).filter(Boolean);
+  const r16L = BKT_L.map(p => _findR16(p, r16)).filter(Boolean);
+  const r16R = BKT_R.map(p => _findR16(p, r16)).filter(Boolean);
+
+  const renderCard = (m, i) => showProj ? projKmHTML(m, i) : kmHTML(m);
+  const r32L = r32Left.map(renderCard);
+  const r32R = r32Right.map(renderCard);
 
   const mkCol = (label, items, fill, isRawHTML) => {
     const cnt = fill || items.length || 1;
@@ -4861,7 +4902,7 @@ function bracketHTML() {
     </div>`;
   };
 
-  const r16L = r16.slice(0,4), r16R = r16.slice(4,8);
+  // QF: SF1 takes QF1+QF2 (first two by date), SF2 takes QF3+QF4
   const qfL = qf.slice(0,2), qfR = qf.slice(2,4);
   const sfL = sf.slice(0,1), sfR = sf.slice(1,2);
 

@@ -1,4 +1,4 @@
-const CACHE = 'wc2026-v3';
+const CACHE = 'wc2026-v4';
 const APP_SHELL = [
   './wc2026_dashboard.html',
   './icon.svg',
