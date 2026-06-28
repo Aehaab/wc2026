@@ -1849,12 +1849,26 @@ function renderUpcoming() {
     return new Date(a.date) - new Date(b.date);
   });
 
+  let lastDayLabel = '';
   safeHTML(bar, sorted.map(m => {
     const live = m.state === 'in';
     const post = m.state === 'post';
     const pre  = m.state === 'pre';
     const dt   = fmtMatchCard(m.date);
     const cd   = pre ? fmtCD(m.date) : null;
+
+    let dayDivider = '';
+    if (!_dstripDate) {
+      const mDate = shifted(m.date);
+      const mDs = mDate.getUTCFullYear() + '-' + String(mDate.getUTCMonth()+1).padStart(2,'0') + '-' + String(mDate.getUTCDate()).padStart(2,'0');
+      const today = dstripToday();
+      const tomorrow = dstripAddDays(today, 1);
+      const dayLabel = mDs === today ? 'Today' : mDs === tomorrow ? 'Tomorrow' : `${DOW[mDate.getUTCDay()]} ${mDate.getUTCDate()} ${MON[mDate.getUTCMonth()]}`;
+      if (dayLabel !== lastDayLabel) {
+        lastDayLabel = dayLabel;
+        dayDivider = `<div style="width:100%;padding:10px 0 4px;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">${dayLabel}</div>`;
+      }
+    }
 
     let centerCol;
     if (live) {
@@ -1889,7 +1903,7 @@ function renderUpcoming() {
 
     const ucClass = live ? 'uc-live' : post ? 'uc-post' : '';
 
-    return `<div class="uc ${ucClass}"
+    return `${dayDivider}<div class="uc ${ucClass}"
                  data-action="goto-match" data-id="${esc(m.id)}"
                  aria-label="${esc(m.home.name)} vs ${esc(m.away.name)}">
       <div class="uc-left">
