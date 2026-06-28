@@ -4080,7 +4080,7 @@ function renderDstrip() {
     const cnt = (matchDays[ds] || []).length;
     const isToday = ds === today;
     const isOn = ds === _dstripDate;
-    const noMatch = cnt === 0;
+    const noMatch = cnt === 0 && S.phase2;
     const dots = Array(Math.min(cnt, 4)).fill('<div class="dstrip-dot"></div>').join('');
     return `<button class="dstrip-day${isOn?' on':''}${isToday?' today':''}${noMatch?' no-match':''}"
                     data-action="dstrip-day" data-ds="${ds}" title="${dow} ${num} ${MON[d.getUTCMonth()]} · ${cnt} match${cnt!==1?'es':''}">
