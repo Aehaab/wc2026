@@ -705,7 +705,15 @@ html[data-theme="light"] #bg-art{opacity:0.25}
 .bracket-body{
   display:flex;align-items:stretch;justify-content:center;
   min-width:max-content;margin:0 auto;overflow-x:auto;
+  position:relative;
 }
+
+.bkt-lines{
+  width:20px;min-width:20px;flex-shrink:0;align-self:stretch;display:flex;align-items:stretch;
+}
+.bkt-lines svg{flex:1;pointer-events:none}
+
+.km-wrap{position:relative}
 
 .brcol{
   display:flex;flex-direction:column;
@@ -4558,7 +4566,15 @@ function buildSimLookup() {
       lookup[key] = team;
     });
   };
-  addLookup('Round of 32', r32);
+  // R32 uses FIFA slot ordering (not chronological) — matches _R32T
+  const _SIM_R32T = [
+    'RSA|CAN','GER|PAR','NED|MAR','BRA|JPN','FRA|SWE','CIV|NOR','MEX|ECU','ENG|COD',
+    'USA|BIH','BEL|SEN','POR|CRO','ESP|AUT','SUI|ALG','ARG|CPV','COL|GHA','AUS|EGY'];
+  const r32Slotted = _SIM_R32T.map(k => {
+    const [a, b] = k.split('|');
+    return r32.find(x => (x.home.abbr===a && x.away.abbr===b) || (x.home.abbr===b && x.away.abbr===a));
+  }).filter(Boolean);
+  addLookup('Round of 32', r32Slotted);
   addLookup('Round of 16', r16);
   addLookup('Quarterfinal', qf);
   addLookup('Semifinal', sf);
@@ -4840,80 +4856,135 @@ function bracketHTML() {
       </div>`;
   }
 
-  // Check if R32 has any TBD teams → show projected overlay
   const r32HasTBD = r32.some(m => isTBD(m.home) || isTBD(m.away));
   const hasGroups = Object.keys(S.groups).length > 0;
   const showProj = r32HasTBD && hasGroups;
 
-  // ── Bracket structure built from FIFA match connections ──
-  // ESPN "R32 #N" = FIFA match M(72+N). Map N → actual R32 match.
+  // ── R32 slot numbering: FIFA bracket positions (fixed by draw) ──
   const _R32T = [
     'RSA|CAN','GER|PAR','NED|MAR','BRA|JPN','FRA|SWE','CIV|NOR','MEX|ECU','ENG|COD',
     'USA|BIH','BEL|SEN','POR|CRO','ESP|AUT','SUI|ALG','ARG|CPV','COL|GHA','AUS|EGY'];
-  const _r32n = {};
-  _R32T.forEach((k,i) => { const [a,b]=k.split('|');
-    const m=r32.find(x=>(x.home.abbr===a&&x.away.abbr===b)||(x.home.abbr===b&&x.away.abbr===a));
-    if(m) _r32n[i+1]=m; });
+  const r32BySlot = {};
+  _R32T.forEach((k, i) => {
+    const [a, b] = k.split('|');
+    const m = r32.find(x => (x.home.abbr===a && x.away.abbr===b) || (x.home.abbr===b && x.away.abbr===a));
+    if (m) r32BySlot[i + 1] = m;
+  });
 
-  // FIFA R16 connections: R16#N feeds from R32#X and R32#Y
-  const _R16F = {1:[2,5],2:[1,3],3:[4,6],4:[7,8],5:[11,12],6:[9,10],7:[14,16],8:[13,15]};
-  const _r16n = {};
-  for(let n=1;n<=8;n++){
-    const [x,y]=_R16F[n];
-    _r16n[n] = r16.find(m=>{
-      const hr=(m.home.name||'').match(/Round of 32[^\d]*(\d+)/i);
-      const ar=(m.away.name||'').match(/Round of 32[^\d]*(\d+)/i);
-      if(hr&&ar){ const h=+hr[1],a=+ar[1]; return (h===x&&a===y)||(h===y&&a===x); }
-      const pa=[_r32n[x],_r32n[y]].filter(Boolean).flatMap(p=>[p.home.abbr,p.away.abbr]);
-      return pa.includes(m.home.abbr)||pa.includes(m.away.abbr);
+  // R16 feeder connections: R16 slot N feeds from R32 slots [X, Y]
+  const _R16F = {1:[2,5], 2:[1,3], 3:[4,6], 4:[7,8], 5:[11,12], 6:[9,10], 7:[14,16], 8:[13,15]};
+
+  // Build R16 by slot: match R16 matches to their slot using team name patterns or _R16F
+  const r16BySlot = {};
+  for (let n = 1; n <= 8; n++) {
+    const [x, y] = _R16F[n];
+    r16BySlot[n] = r16.find(m => {
+      const hr = (m.home.name || '').match(/Round of 32[^\d]*(\d+)/i);
+      const ar = (m.away.name || '').match(/Round of 32[^\d]*(\d+)/i);
+      if (hr && ar) { const h = +hr[1], a = +ar[1]; return (h===x && a===y) || (h===y && a===x); }
+      const pa = [r32BySlot[x], r32BySlot[y]].filter(Boolean).flatMap(p => [p.home.abbr, p.away.abbr]);
+      return pa.includes(m.home.abbr) || pa.includes(m.away.abbr);
     }) || null;
   }
 
-  // Bracket layout verified from FotMob desktop bracket:
-  // LEFT (SF1 Dallas): QF1 + QF2
-  //   QF1: R16#1(GER/PAR vs FRA/SWE) then R16#2(RSA/CAN vs NED/MAR)
-  //   QF2: R16#5(POR/CRO vs ESP/AUT) then R16#6(USA/BIH vs BEL/SEN)
-  // RIGHT (SF2 Atlanta): QF3 + QF4
-  //   QF3: R16#3(BRA/JPN vs CIV/NOR) then R16#4(MEX/ECU vs ENG/COD)
-  //   QF4: R16#7(ARG/CPV vs AUS/EGY) then R16#8(SUI/ALG vs COL/GHA)
-  const _LAYOUT_L = [[1,2],[5,6]];
-  const _LAYOUT_R = [[3,4],[7,8]];
+  // R16 feeders from R32
+  const r16Feeders = {};
+  for (let n = 1; n <= 8; n++) {
+    if (r16BySlot[n]) {
+      const [x, y] = _R16F[n];
+      r16Feeders[r16BySlot[n].id] = [r32BySlot[x], r32BySlot[y]].filter(Boolean);
+    }
+  }
 
-  const _r32pair = (r16num) => {
-    const [x,y]=_R16F[r16num];
-    return [_r32n[x],_r32n[y]].filter(Boolean);
+  // QF/SF/Final: use ESPN name data with chronological numbering (correct for later rounds)
+  const _extractFeederNum = (name, roundLabel) => {
+    const re = new RegExp(roundLabel + '[^\\d]*(\\d+)', 'i');
+    const m = (name || '').match(re);
+    return m ? +m[1] : null;
   };
-  const _buildR32 = (layout) => layout.flatMap(([a,b])=>[..._r32pair(a),..._r32pair(b)]);
-  const _buildR16 = (layout) => layout.flatMap(([a,b])=>[_r16n[a],_r16n[b]]).filter(Boolean);
 
-  const r32Left=_buildR32(_LAYOUT_L), r32Right=_buildR32(_LAYOUT_R);
-  const r16L=_buildR16(_LAYOUT_L), r16R=_buildR16(_LAYOUT_R);
+  const r16Sorted = [...r16].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const r16ChronoMap = {};
+  r16Sorted.forEach((m, i) => { r16ChronoMap[i + 1] = m; });
 
-  const renderCard = (m, i) => showProj ? projKmHTML(m, i) : kmHTML(m);
-  const r32L = r32Left.map(renderCard);
-  const r32R = r32Right.map(renderCard);
+  const qfFeeders = {};
+  qf.forEach(m => {
+    const hNum = _extractFeederNum(m.home.name, 'Round of 16');
+    const aNum = _extractFeederNum(m.away.name, 'Round of 16');
+    if (hNum && aNum) {
+      qfFeeders[m.id] = [r16ChronoMap[hNum], r16ChronoMap[aNum]].filter(Boolean);
+    }
+  });
 
-  const mkCol = (label, items, fill, isRawHTML) => {
-    const cnt = fill || items.length || 1;
-    const cards = isRawHTML ? items.join('') : items.map(m => kmHTML(m)).join('');
-    const pad = cnt - items.length;
-    const pads = pad > 0 ? tbdHTML(pad) : '';
-    return `<div class="brcol">
+  const qfSorted = [...qf].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const qfChronoMap = {};
+  qfSorted.forEach((m, i) => { qfChronoMap[i + 1] = m; });
+
+  const sfFeeders = {};
+  sf.forEach(m => {
+    const hNum = _extractFeederNum(m.home.name, 'Quarterfinal') || _extractFeederNum(m.home.name, 'Quarter-Final');
+    const aNum = _extractFeederNum(m.away.name, 'Quarterfinal') || _extractFeederNum(m.away.name, 'Quarter-Final');
+    if (hNum && aNum) {
+      sfFeeders[m.id] = [qfChronoMap[hNum], qfChronoMap[aNum]].filter(Boolean);
+    }
+  });
+
+  const sfSorted = [...sf].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  // ── Build bracket tree from Final → R32 ──
+  const sfL = sfSorted[0] ? [sfSorted[0]] : [];
+  const sfR = sfSorted[1] ? [sfSorted[1]] : [];
+
+  const getQFFeeders = (sfMatch) => sfMatch ? (sfFeeders[sfMatch.id] || []) : [];
+  const getR16Feeders = (qfMatch) => qfMatch ? (qfFeeders[qfMatch.id] || []) : [];
+  const getR32Feeders = (r16Match) => r16Match ? (r16Feeders[r16Match.id] || []) : [];
+
+  const qfL = getQFFeeders(sfL[0]);
+  const qfR = getQFFeeders(sfR[0]);
+  const r16L = qfL.flatMap(q => getR16Feeders(q));
+  const r16R = qfR.flatMap(q => getR16Feeders(q));
+  const r32L = r16L.flatMap(m => getR32Feeders(m));
+  const r32R = r16R.flatMap(m => getR32Feeders(m));
+
+  const r32Sorted = [...r32].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const fillMissing = (arr, pool, expected) => {
+    if (arr.length >= expected) return arr;
+    const ids = new Set(arr.map(m => m?.id));
+    const missing = pool.filter(m => !ids.has(m.id));
+    return [...arr, ...missing].slice(0, expected);
+  };
+  const r32Left  = fillMissing(r32L, r32Sorted, 8);
+  const r32Right = fillMissing(r32R, r32Sorted.filter(m => !r32L.find(x => x?.id === m.id)), 8);
+  const r16Left  = fillMissing(r16L, r16Sorted, 4);
+  const r16Right = fillMissing(r16R, r16Sorted.filter(m => !r16L.find(x => x?.id === m.id)), 4);
+  const qfLeft   = fillMissing(qfL, qfSorted, 2);
+  const qfRight  = fillMissing(qfR, qfSorted.filter(m => !qfL.find(x => x?.id === m.id)), 2);
+
+  const renderCard = (m, i, extra) => {
+    if (!m) return tbdHTML(1);
+    const ex = extra || '';
+    return showProj ? projKmHTML(m, i, ex) : kmHTML(m, ex);
+  };
+
+  const mkCol = (label, matches, fill, side) => {
+    const cnt = fill || matches.length || 1;
+    const cards = matches.map((m, i) =>
+      `<div class="km-wrap" data-mid="${m ? m.id : ''}">${renderCard(m, i)}</div>`
+    ).join('');
+    const pad = cnt - matches.length;
+    const pads = pad > 0 ? Array.from({length: pad}, () => '<div class="km-wrap"><div class="km-tbd">TBD</div></div>').join('') : '';
+    return `<div class="brcol" data-round="${label}" data-side="${side}">
       <div class="brcol-hd">${label}</div>
       <div class="brcol-body">${cards}${pads}</div>
     </div>`;
   };
 
-  // QF: SF1=QF1+QF2 (first two by date), SF2=QF3+QF4
-  const qfL = qf.slice(0,2), qfR = qf.slice(2,4);
-  const sfL = sf.slice(0,1), sfR = sf.slice(1,2);
-
   const finalCard = fin.length
-    ? kmHTML(fin[0], 'final-match')
-    : `<div class="km-tbd" style="border-color:rgba(244,185,66,0.3)">TBD</div>`;
+    ? `<div class="km-wrap" data-mid="${fin[0].id}">${kmHTML(fin[0], 'final-match')}</div>`
+    : '<div class="km-wrap"><div class="km-tbd" style="border-color:rgba(244,185,66,0.3)">TBD</div></div>';
   const thirdCard = tp.length
-    ? kmHTML(tp[0], 'third-match')
-    : `<div class="km-tbd" style="border-color:rgba(140,165,200,0.2)">TBD</div>`;
+    ? `<div class="km-wrap" data-mid="${tp[0].id}">${kmHTML(tp[0], 'third-match')}</div>`
+    : '<div class="km-wrap"><div class="km-tbd" style="border-color:rgba(140,165,200,0.2)">TBD</div></div>';
 
   const projBanner = showProj ? `
     <div style="text-align:center;padding:8px 16px 2px">
@@ -4928,12 +4999,16 @@ function bracketHTML() {
     </div>` : '';
 
   return titleBlockHTML() + pickScoreBanner() + projBanner + `
-  <div class="bracket-body">
-    ${mkCol('R32', r32L, 8, true)}
-    ${mkCol('R16', r16L, 4, false)}
-    ${mkCol('QF',  qfL,  2, false)}
-    ${mkCol('SF',  sfL,  1, false)}
-    <div class="brcol final-col">
+  <div class="bracket-body" id="bracketBody">
+    ${mkCol('R32', r32Left, 8, 'L')}
+    <div class="bkt-lines" data-pair="R32-R16-L"></div>
+    ${mkCol('R16', r16Left, 4, 'L')}
+    <div class="bkt-lines" data-pair="R16-QF-L"></div>
+    ${mkCol('QF',  qfLeft,  2, 'L')}
+    <div class="bkt-lines" data-pair="QF-SF-L"></div>
+    ${mkCol('SF',  sfL,  1, 'L')}
+    <div class="bkt-lines" data-pair="SF-FIN-L"></div>
+    <div class="brcol final-col" data-round="FIN" data-side="C">
       <div class="brcol-hd">🏆 Final</div>
       <div class="brcol-body" style="gap:16px">
         ${finalCard}
@@ -4941,16 +5016,106 @@ function bracketHTML() {
         ${thirdCard}
       </div>
     </div>
-    ${mkCol('SF',  sfR,  1, false)}
-    ${mkCol('QF',  qfR,  2, false)}
-    ${mkCol('R16', r16R, 4, false)}
-    ${mkCol('R32', r32R, 8, true)}
+    <div class="bkt-lines" data-pair="SF-FIN-R"></div>
+    ${mkCol('SF',  sfR,  1, 'R')}
+    <div class="bkt-lines" data-pair="QF-SF-R"></div>
+    ${mkCol('QF',  qfRight,  2, 'R')}
+    <div class="bkt-lines" data-pair="R16-QF-R"></div>
+    ${mkCol('R16', r16Right, 4, 'R')}
+    <div class="bkt-lines" data-pair="R32-R16-R"></div>
+    ${mkCol('R32', r32Right, 8, 'R')}
   </div>`;
 }
 
 /* ══════════════════════════════════════════
    PAINT
 ══════════════════════════════════════════ */
+function drawBracketLines() {
+  const body = document.getElementById('bracketBody');
+  if (!body) return;
+  const lineEls = body.querySelectorAll('.bkt-lines');
+  lineEls.forEach(el => {
+    const pair = el.dataset.pair;
+    if (!pair) return;
+    const side = pair.endsWith('R') ? 'R' : 'L';
+    const isRight = side === 'R';
+
+    // Find the two adjacent brcol elements (source and target)
+    let srcCol, tgtCol;
+    if (isRight) {
+      tgtCol = el.previousElementSibling;
+      srcCol = el.nextElementSibling;
+    } else {
+      srcCol = el.previousElementSibling;
+      tgtCol = el.nextElementSibling;
+    }
+    if (!srcCol || !tgtCol) return;
+
+    const srcCards = srcCol.querySelectorAll('.km-wrap');
+    const tgtCards = tgtCol.querySelectorAll('.km-wrap');
+    if (!srcCards.length || !tgtCards.length) return;
+
+    const bodyRect = body.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const elTop = elRect.top - bodyRect.top;
+    const elH = elRect.height;
+    const elW = elRect.width;
+
+    let paths = '';
+    const lineColor = 'rgba(77,158,255,0.6)';
+
+    // SF→FIN: 1 source → 1 target (straight line)
+    if (srcCards.length === 1 && tgtCards.length >= 1) {
+      const src = srcCards[0];
+      const tgt = tgtCards[0];
+      const srcRect = src.getBoundingClientRect();
+      const tgtRect = tgt.getBoundingClientRect();
+      const srcY = (srcRect.top + srcRect.height / 2) - elRect.top;
+      const tgtY = (tgtRect.top + tgtRect.height / 2) - elRect.top;
+      if (isRight) {
+        paths += `<line x1="${elW}" y1="${srcY}" x2="0" y2="${tgtY}" stroke="${lineColor}" stroke-width="2"/>`;
+      } else {
+        paths += `<line x1="0" y1="${srcY}" x2="${elW}" y2="${tgtY}" stroke="${lineColor}" stroke-width="2"/>`;
+      }
+      el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${elW} ${elH}" style="width:${elW}px;height:${elH}px">${paths}</svg>`;
+      return;
+    }
+
+    // Each target card is fed by 2 consecutive source cards
+    tgtCards.forEach((tgt, ti) => {
+      const s1 = srcCards[ti * 2];
+      const s2 = srcCards[ti * 2 + 1];
+      if (!s1 || !s2) return;
+
+      const tgtRect = tgt.getBoundingClientRect();
+      const s1Rect = s1.getBoundingClientRect();
+      const s2Rect = s2.getBoundingClientRect();
+
+      const tgtY = (tgtRect.top + tgtRect.height / 2) - elRect.top;
+      const s1Y = (s1Rect.top + s1Rect.height / 2) - elRect.top;
+      const s2Y = (s2Rect.top + s2Rect.height / 2) - elRect.top;
+
+      if (isRight) {
+        // Lines go from right (source) to left (target)
+        const midX = elW / 2;
+        paths += `<line x1="${elW}" y1="${s1Y}" x2="${midX}" y2="${s1Y}" stroke="${lineColor}" stroke-width="2"/>`;
+        paths += `<line x1="${elW}" y1="${s2Y}" x2="${midX}" y2="${s2Y}" stroke="${lineColor}" stroke-width="2"/>`;
+        paths += `<line x1="${midX}" y1="${s1Y}" x2="${midX}" y2="${s2Y}" stroke="${lineColor}" stroke-width="2"/>`;
+        paths += `<line x1="${midX}" y1="${tgtY}" x2="0" y2="${tgtY}" stroke="${lineColor}" stroke-width="2"/>`;
+      } else {
+        // Lines go from left (source) to right (target)
+        const midX = elW / 2;
+        paths += `<line x1="0" y1="${s1Y}" x2="${midX}" y2="${s1Y}" stroke="${lineColor}" stroke-width="2"/>`;
+        paths += `<line x1="0" y1="${s2Y}" x2="${midX}" y2="${s2Y}" stroke="${lineColor}" stroke-width="2"/>`;
+        paths += `<line x1="${midX}" y1="${s1Y}" x2="${midX}" y2="${s2Y}" stroke="${lineColor}" stroke-width="2"/>`;
+        paths += `<line x1="${midX}" y1="${tgtY}" x2="${elW}" y2="${tgtY}" stroke="${lineColor}" stroke-width="2"/>`;
+      }
+    });
+
+    el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${elW} ${elH}" style="width:${elW}px;height:${elH}px">${paths}</svg>`;
+  });
+}
+
 function paint(preserveScroll) {
   const savedY = preserveScroll ? window.scrollY : null;
   const p = document.getElementById('poster');
@@ -4977,10 +5142,11 @@ function paint(preserveScroll) {
   renderStats();
   renderBrief();
   restoreDetail();
+  requestAnimationFrame(drawBracketLines);
   if (savedY !== null) {
     window.scrollTo(0, savedY);
-    requestAnimationFrame(() => window.scrollTo(0, savedY));
-    setTimeout(() => window.scrollTo(0, savedY), 100);
+    requestAnimationFrame(() => { window.scrollTo(0, savedY); drawBracketLines(); });
+    setTimeout(() => { window.scrollTo(0, savedY); drawBracketLines(); }, 100);
   }
 }
 
