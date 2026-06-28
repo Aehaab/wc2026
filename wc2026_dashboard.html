@@ -4845,47 +4845,49 @@ function bracketHTML() {
   const hasGroups = Object.keys(S.groups).length > 0;
   const showProj = r32HasTBD && hasGroups;
 
-  // Official FIFA 2026 bracket structure defined by team pairs.
-  // SF1 (Dallas) path = LEFT, SF2 (Atlanta) path = RIGHT.
-  const BKT_L = [
-    [['RSA','CAN'],['NED','MAR']],
-    [['GER','PAR'],['FRA','SWE']],
-    [['BEL','SEN'],['USA','BIH']],
-    [['ESP','AUT'],['POR','CRO']],
-  ];
-  const BKT_R = [
-    [['BRA','JPN'],['CIV','NOR']],
-    [['MEX','ECU'],['ENG','COD']],
-    [['SUI','ALG'],['COL','GHA']],
-    [['AUS','EGY'],['ARG','CPV']],
-  ];
-  const _findR32 = (a, b) => r32.find(m =>
-    (m.home.abbr===a&&m.away.abbr===b)||(m.home.abbr===b&&m.away.abbr===a));
-  const _findR16 = (pair, pool) => {
-    const teams = pair.flat();
-    return pool.find(m => {
-      if (teams.includes(m.home.abbr)||teams.includes(m.away.abbr)) return true;
-      const resolve = name => {
-        const ref = (name||'').match(/Round of 32[^\d]*(\d+)/i);
-        if (!ref) return null;
-        const n = parseInt(ref[1]);
-        const key = FIFA_R32[n-1];
-        return key ? _findR32(...key.split('|')) : null;
-      };
-      const hp = resolve(m.home.name), ap = resolve(m.away.name);
-      return (hp && teams.some(t => t===hp.home.abbr||t===hp.away.abbr)) ||
-             (ap && teams.some(t => t===ap.home.abbr||t===ap.away.abbr));
-    });
-  };
-  const FIFA_R32 = [
+  // ── Bracket structure built from FIFA match connections ──
+  // ESPN "R32 #N" = FIFA match M(72+N). Map N → actual R32 match.
+  const _R32T = [
     'RSA|CAN','GER|PAR','NED|MAR','BRA|JPN','FRA|SWE','CIV|NOR','MEX|ECU','ENG|COD',
-    'USA|BIH','BEL|SEN','POR|CRO','ESP|AUT','SUI|ALG','ARG|CPV','COL|GHA','AUS|EGY',
-  ];
+    'USA|BIH','BEL|SEN','POR|CRO','ESP|AUT','SUI|ALG','ARG|CPV','COL|GHA','AUS|EGY'];
+  const _r32n = {};
+  _R32T.forEach((k,i) => { const [a,b]=k.split('|');
+    const m=r32.find(x=>(x.home.abbr===a&&x.away.abbr===b)||(x.home.abbr===b&&x.away.abbr===a));
+    if(m) _r32n[i+1]=m; });
 
-  const r32Left  = BKT_L.flatMap(p => p.map(([a,b]) => _findR32(a,b))).filter(Boolean);
-  const r32Right = BKT_R.flatMap(p => p.map(([a,b]) => _findR32(a,b))).filter(Boolean);
-  const r16L = BKT_L.map(p => _findR16(p, r16)).filter(Boolean);
-  const r16R = BKT_R.map(p => _findR16(p, r16)).filter(Boolean);
+  // FIFA R16 connections: R16#N feeds from R32#X and R32#Y
+  const _R16F = {1:[2,5],2:[1,3],3:[4,6],4:[7,8],5:[11,12],6:[9,10],7:[14,16],8:[13,15]};
+  const _r16n = {};
+  for(let n=1;n<=8;n++){
+    const [x,y]=_R16F[n];
+    _r16n[n] = r16.find(m=>{
+      const hr=(m.home.name||'').match(/Round of 32[^\d]*(\d+)/i);
+      const ar=(m.away.name||'').match(/Round of 32[^\d]*(\d+)/i);
+      if(hr&&ar){ const h=+hr[1],a=+ar[1]; return (h===x&&a===y)||(h===y&&a===x); }
+      const pa=[_r32n[x],_r32n[y]].filter(Boolean).flatMap(p=>[p.home.abbr,p.away.abbr]);
+      return pa.includes(m.home.abbr)||pa.includes(m.away.abbr);
+    }) || null;
+  }
+
+  // Bracket layout verified from FotMob desktop bracket:
+  // LEFT (SF1 Dallas): QF1 + QF2
+  //   QF1: R16#1(GER/PAR vs FRA/SWE) then R16#2(RSA/CAN vs NED/MAR)
+  //   QF2: R16#5(POR/CRO vs ESP/AUT) then R16#6(USA/BIH vs BEL/SEN)
+  // RIGHT (SF2 Atlanta): QF3 + QF4
+  //   QF3: R16#3(BRA/JPN vs CIV/NOR) then R16#4(MEX/ECU vs ENG/COD)
+  //   QF4: R16#7(ARG/CPV vs AUS/EGY) then R16#8(SUI/ALG vs COL/GHA)
+  const _LAYOUT_L = [[1,2],[5,6]];
+  const _LAYOUT_R = [[3,4],[7,8]];
+
+  const _r32pair = (r16num) => {
+    const [x,y]=_R16F[r16num];
+    return [_r32n[x],_r32n[y]].filter(Boolean);
+  };
+  const _buildR32 = (layout) => layout.flatMap(([a,b])=>[..._r32pair(a),..._r32pair(b)]);
+  const _buildR16 = (layout) => layout.flatMap(([a,b])=>[_r16n[a],_r16n[b]]).filter(Boolean);
+
+  const r32Left=_buildR32(_LAYOUT_L), r32Right=_buildR32(_LAYOUT_R);
+  const r16L=_buildR16(_LAYOUT_L), r16R=_buildR16(_LAYOUT_R);
 
   const renderCard = (m, i) => showProj ? projKmHTML(m, i) : kmHTML(m);
   const r32L = r32Left.map(renderCard);
@@ -4902,7 +4904,7 @@ function bracketHTML() {
     </div>`;
   };
 
-  // QF: SF1 takes QF1+QF2 (first two by date), SF2 takes QF3+QF4
+  // QF: SF1=QF1+QF2 (first two by date), SF2=QF3+QF4
   const qfL = qf.slice(0,2), qfR = qf.slice(2,4);
   const sfL = sf.slice(0,1), sfR = sf.slice(1,2);
 
