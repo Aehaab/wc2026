@@ -476,6 +476,7 @@ html[data-theme="light"] #bg-art{opacity:0.25}
 .mn{font-size:15px;font-weight:900;min-width:14px;text-align:center;line-height:1;color:var(--txt)}
 .mcolon{font-size:11px;color:var(--muted);font-weight:300}
 .mvs{font-size:10px;color:var(--muted);letter-spacing:1px}
+.mpen{font-size:8px;font-weight:700;color:var(--gold);text-align:center;letter-spacing:.3px;margin-top:1px}
 .mlive{
   display:flex;align-items:center;gap:3px;
   background:var(--live-g);border-radius:8px;padding:1px 5px;
@@ -552,6 +553,7 @@ html[data-theme="light"] #bg-art{opacity:0.25}
 .mrd-modal-flag{width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--border)}
 .mrd-modal-abbr{font-size:12px;font-weight:700;color:var(--txt)}
 .mrd-modal-vs{font-size:20px;font-weight:900;color:var(--txt);letter-spacing:2px}
+.pen-sc{font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.5px;display:block;margin-top:2px}
 .mrd-modal-close{position:absolute;top:8px;right:8px;font-size:20px;color:var(--muted);z-index:10;padding:10px;line-height:1;background:var(--card);border-radius:50%;border:1px solid var(--border);width:36px;height:36px;display:flex;align-items:center;justify-content:center}
 .mrd-modal-close:hover{color:var(--txt)}
 @media(min-width:601px){
@@ -774,6 +776,8 @@ html[data-theme="light"] #bg-art{opacity:0.25}
 .kma{font-size:10px;font-weight:700;flex:1;color:var(--txt)}
 .kms{font-size:12px;font-weight:800;color:var(--txt)}
 .kmt.win .kms{color:var(--gold)}
+.kms-pen{font-size:9px;font-weight:700;color:var(--muted);margin-left:2px}
+.kmt.win .kms-pen{color:var(--gold-dim)}
 
 .kmd{
   padding:4px 8px;font-size:9.5px;color:var(--muted);
@@ -862,6 +866,7 @@ html[data-theme="light"] #bg-art{opacity:0.25}
   border-left:none;padding:0;min-width:auto;
 }
 .uc-sc{font-size:24px;font-weight:900;color:var(--txt);line-height:1.2}
+.uc-pen{font-size:9px;font-weight:700;color:var(--gold);letter-spacing:.3px;margin-top:1px}
 .uc-sc-sep{font-size:10px;color:var(--muted);line-height:1}
 .uc-live-badge{font-size:9px;font-weight:700;color:var(--live);padding:2px 8px;background:var(--live-g);border-radius:10px;display:flex;align-items:center;gap:4px}
 .uc-live-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--live);animation:pulse-live 1.5s infinite}
@@ -906,13 +911,15 @@ html[data-theme="light"] #bg-art{opacity:0.25}
 }
 .lr-abbr{font-size:10px;font-weight:600;color:var(--txt2);white-space:nowrap}
 .lr-score{
-  display:flex;align-items:center;gap:3px;
-  font-size:13px;font-weight:900;justify-content:center;min-width:40px;
+  display:flex;flex-direction:column;align-items:center;gap:1px;
+  justify-content:center;min-width:40px;
 }
+.lr-score-main{display:flex;align-items:center;gap:3px;font-size:13px;font-weight:900}
 .lr-sc-w{color:var(--txt)}
 .lr-sc-l{color:var(--soft)}
 .lr-sc-d{color:var(--txt2)}
 .lr-sep{font-size:10px;color:var(--muted);font-weight:300}
+.lr-pen{font-size:8px;font-weight:700;color:var(--gold);letter-spacing:.2px;white-space:nowrap}
 .lr-scroll{max-height:280px;overflow-y:auto;scrollbar-width:none}
 .lr-scroll::-webkit-scrollbar{display:none}
 
@@ -1948,6 +1955,7 @@ function renderUpcoming() {
       centerCol = `<div class="uc-score">
         <span class="uc-date" style="color:var(--muted)">FT</span>
         <span class="uc-sc">${m.home.score} — ${m.away.score}</span>
+        ${m.home.pen != null && m.away.pen != null ? `<span class="uc-pen">${m.home.pen}-${m.away.pen} pens</span>` : ''}
       </div>`;
     } else {
       centerCol = `<div class="uc-right">
@@ -2958,9 +2966,12 @@ function renderStats() {
             <span class="lr-abbr">${esc(m.home.abbr)}</span>
           </div>
           <div class="lr-score">
-            <span class="${draw?'lr-sc-d':hw?'lr-sc-w':'lr-sc-l'}">${hs}</span>
-            <span class="lr-sep">–</span>
-            <span class="${draw?'lr-sc-d':hw?'lr-sc-l':'lr-sc-w'}">${as}</span>
+            <div class="lr-score-main">
+              <span class="${draw?'lr-sc-d':hw?'lr-sc-w':'lr-sc-l'}">${hs}</span>
+              <span class="lr-sep">–</span>
+              <span class="${draw?'lr-sc-d':hw?'lr-sc-l':'lr-sc-w'}">${as}</span>
+            </div>
+            ${m.home.pen != null && m.away.pen != null ? `<span class="lr-pen">${m.home.pen}-${m.away.pen} pens</span>` : ''}
           </div>
           <div class="lr-team lr-away ${draw?'':hw?'lr-d':'lr-w'}">
             <span class="lr-abbr">${esc(m.away.abbr)}</span>
@@ -3451,7 +3462,7 @@ function renderModalScore(match) {
       <img class="mrd-modal-flag" src="${esc(match.home.logo)}" alt="${esc(match.home.abbr)}" onerror="this.onerror=null">
       <span class="mrd-modal-abbr">${esc(match.home.abbr)}</span>
     </div>
-    <span class="mrd-modal-vs">${match.state !== 'pre' ? `${match.home.score} — ${match.away.score}` : 'vs'}</span>
+    <span class="mrd-modal-vs">${match.state !== 'pre' ? `${match.home.score} — ${match.away.score}${penSuffix(match)}` : 'vs'}</span>
     <div class="mrd-modal-team">
       <img class="mrd-modal-flag" src="${esc(match.away.logo)}" alt="${esc(match.away.abbr)}" onerror="this.onerror=null">
       <span class="mrd-modal-abbr">${esc(match.away.abbr)}</span>
@@ -3982,14 +3993,21 @@ function parseEv(ev) {
 }
 function teamOf(c) {
   const abbr = c.team?.abbreviation || '???';
+  const penRaw = c.shootoutScore ?? c.shootout?.score ?? null;
   return {
     id:     c.team?.id,
     name:   c.team?.displayName || abbr,
     abbr,
     logo:   c.team?.logo || logoUrl(abbr),
     score:  parseInt(c.score) || 0,
+    pen:    penRaw != null && penRaw !== '' ? parseInt(penRaw) : null,
     winner: !!c.winner,
   };
+}
+/* Returns "(4-3 pens)" style suffix when a match went to a shootout, else '' */
+function penSuffix(m) {
+  if (m.home.pen == null || m.away.pen == null) return '';
+  return ` <span class="pen-sc">(${m.home.pen}-${m.away.pen} pens)</span>`;
 }
 const isGrp = m => {
   const r = m.round;
@@ -4368,7 +4386,7 @@ function mrHTML(m) {
       <span class="mn">${m.home.score}</span>
       <span class="mcolon">:</span>
       <span class="mn">${m.away.score}</span>
-    </div>${live ? `<div class="mlive"><div class="mldot"></div><span class="mlclk">${esc(m.clock)}</span></div>` : ''}`;
+    </div>${m.home.pen != null && m.away.pen != null ? `<div class="mpen">${m.home.pen}-${m.away.pen} pens</div>` : ''}${live ? `<div class="mlive"><div class="mldot"></div><span class="mlclk">${esc(m.clock)}</span></div>` : ''}`;
   }
 
   // Show countdown AND TV (both, not one-or-the-other)
@@ -4563,7 +4581,7 @@ function kmTeamBtn(t, pre) {
     <img class="kmf" src="${esc(t.logo)}" alt="${esc(t.abbr)}"
          loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${esc(logoUrl(t.abbr))}'">
     <span class="kma">${esc(t.abbr || 'TBD')}</span>
-    ${!pre ? `<span class="kms">${t.score}</span>` : ''}
+    ${!pre ? `<span class="kms">${t.score}${t.pen != null ? `<span class="kms-pen">(${t.pen})</span>` : ''}</span>` : ''}
   </button>`;
 }
 
@@ -5387,7 +5405,8 @@ function scrollToToday() {
 function shareMatch(id) {
   const m = S.matches.find(x => x.id === id);
   if (!m) return;
-  const text = `⚽ ${m.home.abbr} ${m.home.score} – ${m.away.score} ${m.away.abbr}\n🏆 FIFA World Cup 2026\n📍 ${m.venue || ''} ${m.city || ''}`.trim();
+  const penTxt = (m.home.pen != null && m.away.pen != null) ? ` (${m.home.pen}-${m.away.pen} pens)` : '';
+  const text = `⚽ ${m.home.abbr} ${m.home.score} – ${m.away.score} ${m.away.abbr}${penTxt}\n🏆 FIFA World Cup 2026\n📍 ${m.venue || ''} ${m.city || ''}`.trim();
   if (navigator.share) {
     navigator.share({ text }).catch(() => {});
   } else {
