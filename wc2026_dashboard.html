@@ -794,6 +794,39 @@ html[data-theme="light"] #bg-art{opacity:0.25}
 .km.proj .kmt{padding:5px 6px}
 .proj-seed{font-size:8px!important;font-weight:700;letter-spacing:.3px;margin-left:auto}
 
+/* ═══ BRACKET VIEW TOGGLE ════════════════════════════════════════ */
+.bkt-view-toggle{
+  display:inline-flex;background:rgba(90,150,240,0.08);
+  border-radius:10px;padding:2px;gap:2px;
+}
+.bkt-view-opt{
+  font-size:9px;font-weight:700;padding:4px 10px;border-radius:8px;
+  color:var(--muted);letter-spacing:.3px;transition:all .15s;
+}
+.bkt-view-opt.on{background:var(--blue);color:#fff}
+
+/* ═══ BRACKET OVERVIEW MODE — whole tree on one screen ═══════════ */
+.bracket-wrap.compact{padding:10px 4px 18px;overflow-x:hidden}
+.bracket-wrap.compact .bracket-title{margin-bottom:8px}
+.bracket-wrap.compact .trophy-icon{width:32px;height:32px}
+.bracket-wrap.compact .bracket-name{font-size:10px;letter-spacing:1.5px;margin-top:4px}
+.bracket-wrap.compact .bracket-sub{display:none}
+.bracket-wrap.compact .bracket-body{overflow-x:visible;min-width:0}
+.bracket-wrap.compact .brcol{min-width:31px;max-width:33px}
+.bracket-wrap.compact .brcol.final-col{min-width:38px;max-width:42px}
+.bracket-wrap.compact .brcol-hd{font-size:5.5px;padding:2px 0;letter-spacing:0}
+.bracket-wrap.compact .brcol-body{padding:2px 1px;gap:2px}
+.bracket-wrap.compact .bkt-lines{width:4px;min-width:4px}
+.bracket-wrap.compact .km{border-radius:3px}
+.bracket-wrap.compact .kmt{padding:2px 2px;gap:0}
+.bracket-wrap.compact .kmf{display:none}
+.bracket-wrap.compact .kma{font-size:6px;letter-spacing:0;overflow:hidden;text-overflow:clip;white-space:nowrap}
+.bracket-wrap.compact .kms{font-size:6.5px;flex-shrink:0}
+.bracket-wrap.compact .kmd{display:none}
+.bracket-wrap.compact .km-tbd{padding:5px 2px;font-size:6px}
+.bracket-wrap.compact .pick-badge,.bracket-wrap.compact .proj-seed{display:none}
+.bracket-wrap.compact .sim-toggle,.bracket-wrap.compact .sim-reset{display:none}
+
 /* ═══ LOADING / ERROR ════════════════════════════════════════════ */
 .ldg{
   display:flex;flex-direction:column;
@@ -1828,6 +1861,7 @@ const S = {
   tz: 'local',
   leaders: null, leadersAt: 0, leadersSource: 'idle',
   news: [], newsAt: 0, pulseTab: 1, h2hMode: false, simMode: false,
+  bracketCompact: localStorage.getItem('wc26_bkt_view') === 'compact',
 };
 
 /* ══════════════════════════════════════════
@@ -4570,7 +4604,10 @@ function kmTeamBtn(t, pre) {
     const label = t.name || 'TBD';
     const short = label.replace(/Round of 32 (\d+) Winner/, 'R32-$1')
                        .replace(/Round of 16 (\d+) Winner/, 'R16-$1')
-                       .replace(/ Winner/, '');
+                       .replace(/Quarterfinal (\d+)/i, 'QF-$1')
+                       .replace(/Semifinal (\d+)/i, 'SF-$1')
+                       .replace(/ Winner/, '')
+                       .replace(/ Loser/, 'L');
     return `<button class="kmt">
       <span class="kma" style="color:var(--soft);font-size:9px">${esc(short)}</span>
     </button>`;
@@ -4907,10 +4944,15 @@ function titleBlockHTML() {
     <div class="trophy-icon"><img src="https://a.espncdn.com/i/leaguelogos/soccer/500/4.png" alt="FIFA World Cup 2026" loading="lazy" decoding="async" onerror="this.outerHTML='🏆'"></div>
     <div class="bracket-name">Knockout Stage</div>
     <div class="bracket-sub">R32 · R16 · Quarterfinals · Semifinals · Final</div>
-    <div style="margin-top:6px;display:flex;gap:6px;justify-content:center">
-      <button class="sim-toggle ${S.simMode ? 'on' : ''}" data-action="sim-toggle">🎲 Simulate</button>
-      ${S.simMode && Object.keys(_simResults).length ? '<button class="sim-reset" data-action="sim-reset">Reset</button>' : ''}
+    <div style="margin-top:8px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+      <div class="bkt-view-toggle" data-action="bkt-view-toggle">
+        <span class="bkt-view-opt ${S.bracketCompact ? '' : 'on'}" data-view="detail">Detail</span>
+        <span class="bkt-view-opt ${S.bracketCompact ? 'on' : ''}" data-view="compact">Overview</span>
+      </div>
+      ${!S.bracketCompact ? `<button class="sim-toggle ${S.simMode ? 'on' : ''}" data-action="sim-toggle">🎲 Simulate</button>
+      ${S.simMode && Object.keys(_simResults).length ? '<button class="sim-reset" data-action="sim-reset">Reset</button>' : ''}` : ''}
     </div>
+    ${S.bracketCompact ? '<div style="font-size:9px;color:var(--muted);margin-top:6px">Tap a match for details</div>' : ''}
   </div>`;
 }
 // TITLE_BLOCK replaced by titleBlockHTML() calls above
@@ -5213,7 +5255,7 @@ function paint(preserveScroll) {
   _projCache = null;
   const letters = Object.keys(S.groups).sort();
   safeHTML(p, `
-    <div class="bracket-wrap" id="bracketWrap">${bracketHTML()}</div>
+    <div class="bracket-wrap ${S.bracketCompact ? 'compact' : ''}" id="bracketWrap">${bracketHTML()}</div>
     <div class="gs-bottom" id="gsBottom">${letters.map(l => gcHTML(S.groups[l])).join('')}</div>`);
   renderUpcoming();
   renderDstrip();
@@ -5419,6 +5461,16 @@ function shareMatch(id) {
 
 /* Single event delegation — no inline handlers anywhere */
 document.addEventListener('click', e => {
+  const viewOpt = e.target.closest('.bkt-view-opt');
+  if (viewOpt) {
+    S.bracketCompact = viewOpt.dataset.view === 'compact';
+    localStorage.setItem('wc26_bkt_view', S.bracketCompact ? 'compact' : 'detail');
+    paint(true);
+    return;
+  }
+  const compactCard = e.target.closest('.bracket-wrap.compact .km-wrap[data-mid]');
+  if (compactCard && compactCard.dataset.mid) { toggleExpand(compactCard.dataset.mid); return; }
+
   const teamEl = e.target.closest('[data-action="team"]');
   if (teamEl) { selTeam(teamEl.dataset.abbr, teamEl.dataset.logo, teamEl.dataset.name); return; }
   if (e.target.closest('[data-action="clear"]')) { clearF(); return; }
@@ -5639,7 +5691,7 @@ init();
 (function() {
   const nav = document.getElementById('snav');
   const fab = document.getElementById('fabTop');
-  const sectionIds = ['ubarOuter','bracketWrap','gsBottom','statsSec','clubExplorer'];
+  const sectionIds = ['ubarOuter','statsSec','bracketWrap','gsBottom','clubExplorer'];
 
   nav.addEventListener('click', e => {
     const btn = e.target.closest('.snav-item');
