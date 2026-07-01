@@ -2992,7 +2992,7 @@ function renderStats() {
       const rLbl = rKey ? ROUND_MAP[rKey] : 'FT';
       const mrows = ms.map(m => {
         const hs = m.home.score, as = m.away.score, draw = hs === as, hw = hs > as;
-        return `<div class="lr-row" data-action="goto-match" data-id="${esc(m.id)}" role="button" tabindex="0"
+        return `<div class="lr-row" data-action="expand" data-id="${esc(m.id)}" role="button" tabindex="0"
                      aria-label="${esc(m.home.name)} ${hs}–${as} ${esc(m.away.name)}">
           <div class="lr-team ${draw?'':hw?'lr-w':'lr-d'}">
             <img class="lr-flag" src="${esc(m.home.logo)}" alt="${esc(m.home.abbr)}"
@@ -5468,8 +5468,10 @@ document.addEventListener('click', e => {
     paint(true);
     return;
   }
-  const compactCard = e.target.closest('.bracket-wrap.compact .km-wrap[data-mid]');
-  if (compactCard && compactCard.dataset.mid) { toggleExpand(compactCard.dataset.mid); return; }
+  const kmCard = e.target.closest('.km-wrap[data-mid]');
+  if (kmCard && kmCard.dataset.mid && !e.target.closest('[data-action="team"],[data-action="ko-pick"],[data-action="sim-advance"],[data-action="bkt-view-toggle"]')) {
+    toggleExpand(kmCard.dataset.mid); return;
+  }
 
   const teamEl = e.target.closest('[data-action="team"]');
   if (teamEl) { selTeam(teamEl.dataset.abbr, teamEl.dataset.logo, teamEl.dataset.name); return; }
