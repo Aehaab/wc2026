@@ -4634,6 +4634,17 @@ function savePick(matchId, abbr) {
   picks[matchId] = abbr;
   localStorage.setItem('wc26_picks', JSON.stringify(picks));
 }
+// Update just the picked card + the score banner in place, instead of a full
+// paint(true) — rebuilding the whole bracket/groups DOM on every tap was
+// fighting the browser's scroll-anchoring and jumping the page to the top.
+function refreshPickUI(matchId) {
+  const banner = document.getElementById('pickBanner');
+  if (banner) safeHTML(banner, pickScoreBanner());
+  const wrap = document.querySelector(`.km-wrap[data-mid="${matchId}"]`);
+  const m = S.matches.find(x => x.id === matchId);
+  if (wrap && m) safeHTML(wrap, kmHTML(m));
+  requestAnimationFrame(drawBracketLines);
+}
 function pickBadge(matchId, teamAbbr, matchState) {
   const picks = getPicksStore();
   const pick = picks[matchId];
@@ -5125,7 +5136,7 @@ function bracketHTML() {
       <span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted)"><span style="width:7px;height:7px;border-radius:2px;background:var(--gold);display:inline-block"></span>Best 3rd place</span>
     </div>` : '';
 
-  return titleBlockHTML() + pickScoreBanner() + projBanner + `
+  return titleBlockHTML() + `<div id="pickBanner">${pickScoreBanner()}</div>` + projBanner + `
   <div class="bracket-body" id="bracketBody">
     ${mkCol('R32', r32Left, 8, 'L')}
     <div class="bkt-lines" data-pair="R32-R16-L"></div>
@@ -5510,7 +5521,7 @@ document.addEventListener('click', e => {
   if (simAdv) { simAdvance(simAdv.dataset.mid, simAdv.dataset.abbr); return; }
 
   const pickEl = e.target.closest('[data-action="ko-pick"]');
-  if (pickEl) { savePick(pickEl.dataset.mid, pickEl.dataset.abbr); paint(true); return; }
+  if (pickEl) { savePick(pickEl.dataset.mid, pickEl.dataset.abbr); refreshPickUI(pickEl.dataset.mid); return; }
 
   const shareEl = e.target.closest('[data-action="share-match"]');
   if (shareEl) { shareMatch(shareEl.dataset.id); return; }
