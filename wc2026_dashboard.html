@@ -784,6 +784,8 @@ html[data-theme="light"] #bg-art{opacity:0.25}
   text-align:center;border-top:1px solid var(--border2);
   background:rgba(0,0,0,0.2);
 }
+button.kmd{width:100%;display:block;border:none;border-top:1px solid var(--border2);cursor:pointer;font:inherit}
+button.kmd:hover,button.kmd:focus-visible{color:var(--txt);background:rgba(77,158,255,0.15)}
 
 .km-tbd{
   border:1px dashed var(--border);border-radius:var(--r);
@@ -4758,7 +4760,9 @@ function kmHTML(m, extra = '') {
           ${pickBadge(m.id, m.away.abbr, m.state)}
         </button>`
       : kmTeamBtn(m.away, pre)}
-    <div class="kmd">${fmtT(m.date)}</div>
+    <button class="kmd" data-action="expand" data-id="${esc(m.id)}" id="mexp${esc(m.id)}" aria-label="Match details">
+      ${pre ? esc(fmtT(m.date)) : m.state === 'in' ? `🔴 ${esc(m.clock || 'LIVE')}` : 'FT'} · Details ▾
+    </button>
   </div>`;
 }
 const tbdHTML = (n = 1) => Array.from({length: n}, () => `<div class="km-tbd">TBD</div>`).join('');
@@ -5018,40 +5022,41 @@ function bracketHTML() {
     }
   }
 
-  // QF/SF/Final: use ESPN name data with chronological numbering (correct for later rounds)
-  const _extractFeederNum = (name, roundLabel) => {
-    const re = new RegExp(roundLabel + '[^\\d]*(\\d+)', 'i');
-    const m = (name || '').match(re);
-    return m ? +m[1] : null;
-  };
-
+  // QF/SF feeders — derived from fixed FIFA bracket topology (slot order == chronological
+  // kickoff order, verified against the official schedule), NOT from parsing ESPN's
+  // placeholder team names ("Round of 16 N Winner" etc). Those placeholders get overwritten
+  // with the real team name the moment the feeding match concludes, so any regex on
+  // m.home.name/m.away.name stops matching for exactly the matches that have already been
+  // decided — which silently dropped that whole branch of the bracket (the "wrong data in
+  // R16" bug: as soon as one R16 match finished, its QF stopped linking back to its R16 pair).
   const r16Sorted = [...r16].sort((a, b) => new Date(a.date) - new Date(b.date));
   const r16ChronoMap = {};
   r16Sorted.forEach((m, i) => { r16ChronoMap[i + 1] = m; });
 
-  const qfFeeders = {};
-  qf.forEach(m => {
-    const hNum = _extractFeederNum(m.home.name, 'Round of 16');
-    const aNum = _extractFeederNum(m.away.name, 'Round of 16');
-    if (hNum && aNum) {
-      qfFeeders[m.id] = [r16ChronoMap[hNum], r16ChronoMap[aNum]].filter(Boolean);
-    }
-  });
-
   const qfSorted = [...qf].sort((a, b) => new Date(a.date) - new Date(b.date));
-  const qfChronoMap = {};
-  qfSorted.forEach((m, i) => { qfChronoMap[i + 1] = m; });
+  const qfBySlot = {};
+  qfSorted.forEach((m, i) => { qfBySlot[i + 1] = m; });
 
-  const sfFeeders = {};
-  sf.forEach(m => {
-    const hNum = _extractFeederNum(m.home.name, 'Quarterfinal') || _extractFeederNum(m.home.name, 'Quarter-Final');
-    const aNum = _extractFeederNum(m.away.name, 'Quarterfinal') || _extractFeederNum(m.away.name, 'Quarter-Final');
-    if (hNum && aNum) {
-      sfFeeders[m.id] = [qfChronoMap[hNum], qfChronoMap[aNum]].filter(Boolean);
+  // QF slot N is fed by R16 slots [X, Y] (fixed by the draw)
+  const _QFF = {1:[1,2], 2:[5,6], 3:[3,4], 4:[7,8]};
+  const qfFeeders = {};
+  for (let n = 1; n <= 4; n++) {
+    if (qfBySlot[n]) {
+      const [x, y] = _QFF[n];
+      qfFeeders[qfBySlot[n].id] = [r16BySlot[x], r16BySlot[y]].filter(Boolean);
     }
-  });
+  }
 
   const sfSorted = [...sf].sort((a, b) => new Date(a.date) - new Date(b.date));
+  // SF slot N is fed by QF slots [X, Y] (fixed by the draw)
+  const _SFF = {1:[1,2], 2:[3,4]};
+  const sfFeeders = {};
+  for (let n = 1; n <= 2; n++) {
+    if (sfSorted[n - 1]) {
+      const [x, y] = _SFF[n];
+      sfFeeders[sfSorted[n - 1].id] = [qfBySlot[x], qfBySlot[y]].filter(Boolean);
+    }
+  }
 
   // ── Build bracket tree from Final → R32 ──
   const sfL = sfSorted[0] ? [sfSorted[0]] : [];
